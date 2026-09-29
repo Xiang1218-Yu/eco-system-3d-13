@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Organism, Species } from '@/types/ecosystem';
+import { useBioluminescence } from '@/hooks/useBioluminescence';
 
 interface ProducerModelProps {
   species: Species;
@@ -10,6 +11,8 @@ interface ProducerModelProps {
 
 export function ProducerModel({ species, organism }: ProducerModelProps) {
   const groupRef = useRef<THREE.Group>(null);
+
+  useBioluminescence(groupRef, false);
 
   useFrame((state) => {
     if (groupRef.current) {

@@ -102,6 +102,7 @@ export const SPECIES: Species[] = [
     size: 0.9,
     energyValue: 100,
     maxPopulation: 3,
+    bioluminescent: true,
   },
   {
     id: 'frog',
@@ -136,6 +137,7 @@ export const SPECIES: Species[] = [
     size: 0.2,
     energyValue: 5,
     maxPopulation: 8,
+    bioluminescent: true,
   },
 ];
 

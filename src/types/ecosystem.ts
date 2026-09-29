@@ -20,6 +20,8 @@ export interface Species {
   size: number;
   energyValue: number;
   maxPopulation: number;
+  /** 是否为发光生物，夜间自发光与点光源会增强 */
+  bioluminescent?: boolean;
 }
 
 export interface Organism {

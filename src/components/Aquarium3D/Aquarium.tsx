@@ -1,12 +1,14 @@
-import { useRef, useMemo, useState } from 'react';
+import { useRef, useMemo } from 'react';
 import { Canvas, useFrame, ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { Organism3D } from '@/components/Organisms/Organism';
+import { DayNightLighting } from '@/components/Aquarium3D/DayNightLighting';
 import { useEcosystemStore } from '@/store/useEcosystemStore';
 import { AQUARIUM_BOUNDS } from '@/store/useEcosystemStore';
 import { getSpeciesById } from '@/data/species';
+import { getEffectiveDaylight, lerp } from '@/utils/dayNight';
 
 function Glass() {
   const thickness = 0.08;
@@ -83,11 +85,17 @@ function Glass() {
 
 function Water() {
   const waterRef = useRef<THREE.Mesh>(null);
+  const materialRef = useRef<THREE.MeshPhysicalMaterial>(null);
 
   useFrame((state) => {
-    if (waterRef.current) {
-      const material = waterRef.current.material as THREE.MeshPhysicalMaterial;
-      material.opacity = 0.35 + Math.sin(state.clock.elapsedTime * 0.5) * 0.02;
+    if (materialRef.current) {
+      const { dayNightEnabled, dayPhase } = useEcosystemStore.getState();
+      const daylight = getEffectiveDaylight({ enabled: dayNightEnabled, phase: dayPhase });
+      // 夜间水体更暗、更通透；白天呈明亮青蓝色
+      materialRef.current.opacity =
+        lerp(0.22, 0.35, daylight) + Math.sin(state.clock.elapsedTime * 0.5) * 0.02;
+      tmpWaterColor.copy(NIGHT_WATER_COLOR).lerp(DAY_WATER_COLOR, daylight);
+      materialRef.current.color.lerp(tmpWaterColor, 0.08);
     }
   });
 
@@ -99,6 +107,7 @@ function Water() {
     <mesh ref={waterRef} position={[0, 0, 0]}>
       <boxGeometry args={[width, height, depth]} />
       <meshPhysicalMaterial
+        ref={materialRef}
         color="#0ea5e9"
         transparent
         opacity={0.35}
@@ -111,6 +120,10 @@ function Water() {
     </mesh>
   );
 }
+
+const DAY_WATER_COLOR = new THREE.Color('#0ea5e9');
+const NIGHT_WATER_COLOR = new THREE.Color('#0a1a3a');
+const tmpWaterColor = new THREE.Color();
 
 function Substrate() {
   const particles = useMemo(() => {
@@ -164,6 +177,14 @@ function LightRays() {
   useFrame((state) => {
     if (raysRef.current) {
       raysRef.current.rotation.y = state.clock.elapsedTime * 0.02;
+      // 光束只在白天出现，夜晚随光照平滑消失
+      const { dayNightEnabled, dayPhase } = useEcosystemStore.getState();
+      const daylight = getEffectiveDaylight({ enabled: dayNightEnabled, phase: dayPhase });
+      raysRef.current.children.forEach((child) => {
+        if (child instanceof THREE.Mesh) {
+          (child.material as THREE.MeshBasicMaterial).opacity = 0.06 * daylight;
+        }
+      });
     }
   });
 
@@ -181,6 +202,7 @@ function LightRays() {
 
 function Bubbles() {
   const bubblesRef = useRef<THREE.Points>(null);
+  const bubblesMaterialRef = useRef<THREE.PointsMaterial>(null);
   const count = 50;
 
   const { positions, sizes, phases } = useMemo(() => {
@@ -218,6 +240,13 @@ function Bubbles() {
         }
       }
       posAttr.needsUpdate = true;
+
+      // 夜间气泡微光减弱
+      if (bubblesMaterialRef.current) {
+        const { dayNightEnabled, dayPhase } = useEcosystemStore.getState();
+        const daylight = getEffectiveDaylight({ enabled: dayNightEnabled, phase: dayPhase });
+        bubblesMaterialRef.current.opacity = lerp(0.25, 0.6, daylight);
+      }
     }
   });
 
@@ -231,7 +260,14 @@ function Bubbles() {
           itemSize={3}
         />
       </bufferGeometry>
-      <pointsMaterial color="#ffffff" size={0.05} transparent opacity={0.6} sizeAttenuation />
+      <pointsMaterial
+        ref={bubblesMaterialRef}
+        color="#ffffff"
+        size={0.05}
+        transparent
+        opacity={0.6}
+        sizeAttenuation
+      />
     </points>
   );
 }
@@ -287,7 +323,6 @@ interface Aquarium3DProps {
 
 export function Aquarium3D({ onAquariumClick }: Aquarium3DProps) {
   const { organisms } = useEcosystemStore();
-  const selectedSpeciesId = useEcosystemStore((s) => s.selectedSpeciesId);
 
   return (
     <Canvas
@@ -296,19 +331,10 @@ export function Aquarium3D({ onAquariumClick }: Aquarium3DProps) {
       style={{ background: 'transparent' }}
       gl={{ antialias: true, alpha: true }}
     >
-      <color attach="background" args={[0x0a1628]} />
-      <fog attach="fog" args={[0x0a1628, 10, 20]} />
+      <color attach="background" args={[0x0d2a4d]} />
+      <fog attach="fog" args={[0x0d2a4d, 10, 20]} />
 
-      <ambientLight intensity={0.4} />
-      <directionalLight
-        position={[2, 5, 3]}
-        intensity={1.2}
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-      />
-      <pointLight position={[0, 3, 0]} intensity={0.6} color="#a5f3fc" distance={10} />
-      <pointLight position={[-3, 1, -2]} intensity={0.3} color="#60a5fa" distance={8} />
+      <DayNightLighting />
 
       <Water />
       <Glass />

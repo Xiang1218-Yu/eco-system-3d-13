@@ -2,6 +2,8 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Organism, Species } from '@/types/ecosystem';
+import { useBioluminescence, useDaylightRef } from '@/hooks/useBioluminescence';
+import { getGlowFactor } from '@/utils/dayNight';
 
 interface CarnivoreModelProps {
   species: Species;
@@ -11,18 +13,25 @@ interface CarnivoreModelProps {
 export function CarnivoreModel({ species, organism }: CarnivoreModelProps) {
   const groupRef = useRef<THREE.Group>(null);
   const tailRef = useRef<THREE.Mesh>(null);
+  const daylightRef = useDaylightRef();
+
+  // 大鱼是发光生物；点光源保留呼吸脉动，因此只让 hook 处理材质自发光
+  useBioluminescence(groupRef, species.bioluminescent === true, { scaleLights: false });
 
   useFrame((state) => {
+    const glow = getGlowFactor(daylightRef.current, species.bioluminescent === true);
     if (tailRef.current) {
       tailRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 10) * 0.5;
     }
     if (groupRef.current) {
       groupRef.current.position.y += Math.sin(state.clock.elapsedTime * 4 + organism.position.x) * 0.004;
-      const intensity = 0.2 + Math.sin(state.clock.elapsedTime * 2) * 0.1;
+      // 夜间发光生物的脉动更明显：基础强度随昼夜变化，再叠呼吸节律
+      const baseIntensity = (species.bioluminescent ? 0.3 : 0.2) * glow;
+      const intensity = baseIntensity + Math.sin(state.clock.elapsedTime * 2) * 0.1 * glow;
       const light = groupRef.current.children.find(
         (c) => c instanceof THREE.PointLight,
       ) as THREE.PointLight;
-      if (light) light.intensity = intensity;
+      if (light) light.intensity = Math.max(0, intensity);
     }
   });
 

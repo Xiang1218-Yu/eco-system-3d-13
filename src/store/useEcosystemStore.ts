@@ -2,6 +2,11 @@ import { create } from 'zustand';
 import * as THREE from 'three';
 import type { Organism, EcosystemStats, Species } from '@/types/ecosystem';
 import { getSpeciesById, SPECIES } from '@/data/species';
+import {
+  DEFAULT_DAY_LENGTH_FRAMES,
+  getDaylight,
+  rescalePhase,
+} from '@/utils/dayNight';
 
 interface EcosystemStore {
   organisms: Organism[];
@@ -10,6 +15,12 @@ interface EcosystemStore {
   isRunning: boolean;
   simulationTime: number;
   showLabels: boolean;
+  /** 昼夜循环开关 */
+  dayNightEnabled: boolean;
+  /** 一个完整昼夜周期的模拟 tick 数 */
+  dayLengthFrames: number;
+  /** 当前昼夜相位 [0, 1)，仅在模拟 tick 中推进 */
+  dayPhase: number;
 
   addOrganism: (speciesId: string, position?: THREE.Vector3) => void;
   removeOrganism: (organismId: string) => void;
@@ -17,7 +28,10 @@ interface EcosystemStore {
   setSelectedSpecies: (speciesId: string | null) => void;
   setSelectedOrganism: (organismId: string | null) => void;
   toggleSimulation: () => void;
-  incrementTime: () => void;
+  /** 模拟帧推进：simulationTime 与 dayPhase 在同一次更新中完成，不使用并行计时器 */
+  advanceTick: () => number;
+  toggleDayNight: () => void;
+  setDayLengthFrames: (frames: number) => void;
   resetEcosystem: () => void;
   toggleLabels: () => void;
   getStats: () => EcosystemStats;
@@ -81,6 +95,9 @@ export const useEcosystemStore = create<EcosystemStore>((set, get) => ({
   isRunning: true,
   simulationTime: 0,
   showLabels: true,
+  dayNightEnabled: true,
+  dayLengthFrames: DEFAULT_DAY_LENGTH_FRAMES,
+  dayPhase: 0,
 
   addOrganism: (speciesId, position) => {
     const state = get();
@@ -142,16 +159,41 @@ export const useEcosystemStore = create<EcosystemStore>((set, get) => ({
     set((prev) => ({ isRunning: !prev.isRunning }));
   },
 
-  incrementTime: () => {
-    set((prev) => ({ simulationTime: prev.simulationTime + 1 }));
+  advanceTick: () => {
+    let daylight = 1;
+    set((prev) => {
+      const simulationTime = prev.simulationTime + 1;
+      let dayPhase = prev.dayPhase;
+      if (prev.dayNightEnabled) {
+        dayPhase = (dayPhase + 1 / prev.dayLengthFrames) % 1;
+      }
+      daylight = prev.dayNightEnabled ? getDaylight(dayPhase) : 1;
+      return { simulationTime, dayPhase };
+    });
+    return daylight;
+  },
+
+  toggleDayNight: () => {
+    set((prev) => ({ dayNightEnabled: !prev.dayNightEnabled }));
+  },
+
+  setDayLengthFrames: (frames) => {
+    const safeFrames = Math.max(30, Math.round(frames));
+    set((prev) => ({
+      dayLengthFrames: safeFrames,
+      // 按比例换算相位，保证切换周期长度时光照连续、不跳变
+      dayPhase: rescalePhase(prev.dayPhase, prev.dayLengthFrames, safeFrames),
+    }));
   },
 
   resetEcosystem: () => {
+    // 重置只清空生物并回到白天起始，保留用户的昼夜偏好与周期配置
     set({
       organisms: [],
       selectedSpeciesId: null,
       selectedOrganismId: null,
       simulationTime: 0,
+      dayPhase: 0,
       isRunning: true,
     });
   },

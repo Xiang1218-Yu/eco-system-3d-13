@@ -3,13 +3,33 @@ import { GlassCard } from '@/components/common/GlassCard';
 import { useEcosystemStore } from '@/store/useEcosystemStore';
 import { SPECIES, TROPHIC_LEVEL_COLORS, TROPHIC_LEVEL_LABELS } from '@/data/species';
 import type { TrophicLevel } from '@/types/ecosystem';
+import {
+  DAY_PERIOD_LABELS,
+  getDayCount,
+  getDayPeriod,
+  getDaylight,
+} from '@/utils/dayNight';
 
 export function EcosystemStats() {
   const organisms = useEcosystemStore((s) => s.organisms);
   const simulationTime = useEcosystemStore((s) => s.simulationTime);
   const getStats = useEcosystemStore((s) => s.getStats);
+  const dayNightEnabled = useEcosystemStore((s) => s.dayNightEnabled);
+  const dayPhase = useEcosystemStore((s) => s.dayPhase);
+  const dayLengthFrames = useEcosystemStore((s) => s.dayLengthFrames);
 
   const stats = useMemo(() => getStats(), [organisms, simulationTime, getStats]);
+
+  const dayPeriod = getDayPeriod({ enabled: dayNightEnabled, phase: dayPhase });
+  const daylight = getDaylight(dayPhase);
+  const dayCount = getDayCount(dayLengthFrames, simulationTime);
+  const daylightPercent = Math.round((dayNightEnabled ? daylight : 1) * 100);
+  const periodColor =
+    dayPeriod === 'night'
+      ? '#818CF8'
+      : dayPeriod === 'day'
+        ? '#FBBF24'
+        : '#FB923C';
 
   const levelData = useMemo(() => {
     const levels: Record<TrophicLevel, number> = {
@@ -57,6 +77,28 @@ export function EcosystemStats() {
           <div className="bg-white/5 rounded-lg p-2">
             <div className="text-white/60 text-xs">生物总数</div>
             <div className="text-white font-mono text-lg">{stats.totalOrganisms}</div>
+          </div>
+        </div>
+
+        <div className="mb-4 bg-white/5 rounded-lg p-2">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-white/80 text-sm flex items-center gap-1">
+              {dayNightEnabled ? (dayPeriod === 'night' ? '🌙' : dayPeriod === 'day' ? '☀️' : '🌇') : '🌞'}
+              {dayNightEnabled ? DAY_PERIOD_LABELS[dayPeriod] : '恒定白天'}
+            </span>
+            <span className="font-mono text-xs" style={{ color: periodColor }}>
+              {dayNightEnabled ? `第 ${dayCount + 1} 天 · 光照 ${daylightPercent}%` : '循环关闭'}
+            </span>
+          </div>
+          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${(dayNightEnabled ? dayPhase : 1) * 100}%`,
+                background:
+                  'linear-gradient(90deg, #fbbf24 0%, #f97316 25%, #6366f1 50%, #f97316 75%, #fbbf24 100%)',
+              }}
+            />
           </div>
         </div>
 

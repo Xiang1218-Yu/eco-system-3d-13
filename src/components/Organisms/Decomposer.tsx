@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Organism, Species } from '@/types/ecosystem';
+import { useBioluminescence } from '@/hooks/useBioluminescence';
 
 interface DecomposerModelProps {
   species: Species;
@@ -10,6 +11,8 @@ interface DecomposerModelProps {
 
 export function DecomposerModel({ species, organism }: DecomposerModelProps) {
   const groupRef = useRef<THREE.Group>(null);
+
+  useBioluminescence(groupRef, true);
 
   useFrame((state) => {
     if (groupRef.current) {

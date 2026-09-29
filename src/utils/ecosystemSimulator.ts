@@ -85,6 +85,7 @@ function findNearestDead(
 
 export function simulateStep(
   organisms: Organism[],
+  daylight = 1,
 ): {
   updates: { id: string; updates: Partial<Organism> }[];
   toRemove: string[];
@@ -107,7 +108,13 @@ export function simulateStep(
       continue;
     }
 
-    energy -= 0.05 + species.size * 0.02;
+    // 夜间整体代谢放缓：能量消耗随光照下降，子夜约为白天的 70%
+    const nightMetabolism = 0.7 + 0.3 * daylight;
+    energy -= (0.05 + species.size * 0.02) * nightMetabolism;
+
+    // 夜间动物活动（游动）减弱，昼夜行为差异可被直接观察到
+    const activityFactor =
+      species.trophicLevel === 'producer' ? 1 : 0.55 + 0.45 * daylight;
 
     const organismUpdate: Partial<Organism> = {};
     const newPosition = organism.position.clone();
@@ -122,7 +129,7 @@ export function simulateStep(
         const huntDir = new THREE.Vector3()
           .subVectors(deadOrganism.position, organism.position)
           .normalize();
-        newVelocity.lerp(huntDir.multiplyScalar(species.speed), 0.1);
+        newVelocity.lerp(huntDir.multiplyScalar(species.speed * activityFactor), 0.1);
 
         if (distance(organism.position, deadOrganism.position) < species.size * 1.5) {
           energy += getSpeciesById(deadOrganism.speciesId)?.energyValue || 20;
@@ -132,9 +139,9 @@ export function simulateStep(
         organismUpdate.state = 'wandering';
         if (Math.random() < 0.02) {
           newVelocity.set(
-            (Math.random() - 0.5) * species.speed,
-            (Math.random() - 0.5) * species.speed * 0.5,
-            (Math.random() - 0.5) * species.speed,
+            (Math.random() - 0.5) * species.speed * activityFactor,
+            (Math.random() - 0.5) * species.speed * 0.5 * activityFactor,
+            (Math.random() - 0.5) * species.speed * activityFactor,
           );
         }
       }
@@ -180,14 +187,14 @@ export function simulateStep(
         const fleeDir = new THREE.Vector3()
           .subVectors(organism.position, predator.position)
           .normalize();
-        newVelocity.lerp(fleeDir.multiplyScalar(species.speed), 0.1);
+        newVelocity.lerp(fleeDir.multiplyScalar(species.speed * activityFactor), 0.1);
       } else if (prey && energy < species.energyValue * 0.7) {
         organismUpdate.state = 'hunting';
         organismUpdate.targetId = prey.id;
         const huntDir = new THREE.Vector3()
           .subVectors(prey.position, organism.position)
           .normalize();
-        newVelocity.lerp(huntDir.multiplyScalar(species.speed), 0.1);
+        newVelocity.lerp(huntDir.multiplyScalar(species.speed * activityFactor), 0.1);
 
         if (distance(organism.position, prey.position) < species.size * 0.8) {
           energy += getSpeciesById(prey.speciesId)?.energyValue || 20;
@@ -199,9 +206,9 @@ export function simulateStep(
         organismUpdate.state = 'wandering';
         if (Math.random() < 0.02) {
           newVelocity.set(
-            (Math.random() - 0.5) * species.speed,
-            (Math.random() - 0.5) * species.speed * 0.5,
-            (Math.random() - 0.5) * species.speed,
+            (Math.random() - 0.5) * species.speed * activityFactor,
+            (Math.random() - 0.5) * species.speed * 0.5 * activityFactor,
+            (Math.random() - 0.5) * species.speed * activityFactor,
           );
         }
       }
@@ -240,7 +247,10 @@ export function simulateStep(
       }
     } else if (species.trophicLevel === 'producer') {
       organismUpdate.state = 'idle';
-      energy += 0.1;
+      // 白天光合作用积累能量（正午 +0.15），夜间只进行呼吸作用缓慢耗能
+      const photosynthesis = 0.15 * daylight;
+      const respiration = 0.02;
+      energy += photosynthesis - respiration;
     }
 
     energy = clamp(energy, 0, species.energyValue * 1.5);
