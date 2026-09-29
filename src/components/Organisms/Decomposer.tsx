@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Organism, Species } from '@/types/ecosystem';
+import { dayNightView, getBioluminescenceGlow } from '@/utils/dayNight';
 
 interface DecomposerModelProps {
   species: Species;
@@ -16,10 +17,28 @@ export function DecomposerModel({ species, organism }: DecomposerModelProps) {
       groupRef.current.rotation.y = state.clock.elapsedTime * 2;
       groupRef.current.position.y += Math.sin(state.clock.elapsedTime * 3 + organism.position.x) * 0.003;
 
+      // 夜间生物发光：随黑暗增强，并带轻微脉动
+      const glow = getBioluminescenceGlow(
+        dayNightView.darkness,
+        state.clock.elapsedTime,
+        organism.position.x * 3,
+      );
+
+      let lightIndex = 0;
       groupRef.current.children.forEach((child, i) => {
         if (child instanceof THREE.Mesh && i > 0) {
           child.position.y = Math.sin(state.clock.elapsedTime * 3 + i) * 0.05;
           child.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 2 + i * 0.5) * 0.1);
+          const mat = child.material as THREE.MeshStandardMaterial;
+          mat.emissiveIntensity = 0.3 + glow * 1.4;
+        }
+        if (child instanceof THREE.Mesh && i === 0) {
+          const mat = child.material as THREE.MeshStandardMaterial;
+          mat.emissiveIntensity = 0.4 + glow * 1.6;
+        }
+        if (child instanceof THREE.PointLight) {
+          child.intensity = 0.15 + glow * 1.8 + Math.sin(state.clock.elapsedTime * 2 + lightIndex) * 0.05;
+          lightIndex += 1;
         }
       });
     }

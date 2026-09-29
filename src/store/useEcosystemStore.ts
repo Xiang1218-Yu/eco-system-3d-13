@@ -2,6 +2,13 @@ import { create } from 'zustand';
 import * as THREE from 'three';
 import type { Organism, EcosystemStats, Species } from '@/types/ecosystem';
 import { getSpeciesById, SPECIES } from '@/data/species';
+import {
+  DEFAULT_DAY_LENGTH_FRAMES,
+  advancePhase,
+  clampDayLength,
+  getDaylight,
+  isNightTime,
+} from '@/utils/dayNight';
 
 interface EcosystemStore {
   organisms: Organism[];
@@ -11,13 +18,23 @@ interface EcosystemStore {
   simulationTime: number;
   showLabels: boolean;
 
+  // 昼夜循环：相位按模拟帧推进，与 simulationTime 在同一次更新中变化
+  dayNightEnabled: boolean;
+  /** 一个完整昼夜周期占用的模拟帧数（可配置） */
+  dayLengthFrames: number;
+  /** 昼夜相位 [0,1)：0 午夜 / 0.25 日出 / 0.5 正午 / 0.75 日落 */
+  dayPhase: number;
+
   addOrganism: (speciesId: string, position?: THREE.Vector3) => void;
   removeOrganism: (organismId: string) => void;
   updateOrganism: (organismId: string, updates: Partial<Organism>) => void;
   setSelectedSpecies: (speciesId: string | null) => void;
   setSelectedOrganism: (organismId: string | null) => void;
   toggleSimulation: () => void;
-  incrementTime: () => void;
+  /** 推进一个模拟帧：模拟时间与昼夜相位一起更新（唯一的推进入口） */
+  advanceSimulationFrame: () => void;
+  toggleDayNight: () => void;
+  setDayLength: (frames: number) => void;
   resetEcosystem: () => void;
   toggleLabels: () => void;
   getStats: () => EcosystemStats;
@@ -82,6 +99,11 @@ export const useEcosystemStore = create<EcosystemStore>((set, get) => ({
   simulationTime: 0,
   showLabels: true,
 
+  // 默认开启昼夜循环，从正午开始，避免初始画面突然变暗
+  dayNightEnabled: true,
+  dayLengthFrames: DEFAULT_DAY_LENGTH_FRAMES,
+  dayPhase: 0.5,
+
   addOrganism: (speciesId, position) => {
     const state = get();
     const species = getSpeciesById(speciesId);
@@ -142,8 +164,24 @@ export const useEcosystemStore = create<EcosystemStore>((set, get) => ({
     set((prev) => ({ isRunning: !prev.isRunning }));
   },
 
-  incrementTime: () => {
-    set((prev) => ({ simulationTime: prev.simulationTime + 1 }));
+  advanceSimulationFrame: () => {
+    set((prev) => ({
+      simulationTime: prev.simulationTime + 1,
+      // 暂停时不会调用本函数；关闭昼夜循环时相位冻结，环境光照维持在白昼
+      dayPhase: prev.dayNightEnabled
+        ? advancePhase(prev.dayPhase, 1, prev.dayLengthFrames)
+        : prev.dayPhase,
+    }));
+  },
+
+  toggleDayNight: () => {
+    // 仅切换开关：相位保留，重新打开后从原时刻平滑继续，不发生跳变
+    set((prev) => ({ dayNightEnabled: !prev.dayNightEnabled }));
+  },
+
+  setDayLength: (frames) => {
+    // 调整周期长度只改变推进速度，相位本身不变，因此没有周期跳变
+    set({ dayLengthFrames: clampDayLength(frames) });
   },
 
   resetEcosystem: () => {
@@ -153,6 +191,8 @@ export const useEcosystemStore = create<EcosystemStore>((set, get) => ({
       selectedOrganismId: null,
       simulationTime: 0,
       isRunning: true,
+      // 重置回到正午；保留用户的昼夜开关与周期长度配置
+      dayPhase: 0.5,
     });
   },
 
@@ -195,6 +235,10 @@ export const useEcosystemStore = create<EcosystemStore>((set, get) => ({
       balanceIndex,
       populationBySpecies,
       totalOrganisms: total,
+      dayPhase: state.dayPhase,
+      daylight: state.dayNightEnabled ? getDaylight(state.dayPhase) : 1,
+      dayNightEnabled: state.dayNightEnabled,
+      isNight: state.dayNightEnabled && isNightTime(getDaylight(state.dayPhase)),
     };
   },
 }));

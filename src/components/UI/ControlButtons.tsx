@@ -1,5 +1,6 @@
 import { GlassCard } from '@/components/common/GlassCard';
 import { useEcosystemStore } from '@/store/useEcosystemStore';
+import { DayNightControls } from '@/components/UI/DayNightControls';
 import { Play, Pause, RotateCcw, Eye, EyeOff, Sparkles } from 'lucide-react';
 
 export function ControlButtons() {
@@ -26,11 +27,16 @@ export function ControlButtons() {
           </div>
         )}
 
-        <div className="flex items-center gap-1 pl-2 border-l border-white/20">
+        <div className="flex items-center gap-2 pl-2 border-l border-white/20">
+          {/* 昼夜切换与配置入口（与暂停入口成组） */}
+          <DayNightControls />
+
+          <div className="w-px h-6 bg-white/20" />
+
           <button
             onClick={toggleSimulation}
             className="p-2 rounded-xl hover:bg-white/10 transition-colors text-white"
-            title={isRunning ? '暂停模拟' : '开始模拟'}
+            title={isRunning ? '暂停模拟（昼夜同步暂停）' : '开始模拟'}
           >
             {isRunning ? <Pause size={18} /> : <Play size={18} />}
           </button>
@@ -46,7 +52,7 @@ export function ControlButtons() {
           <button
             onClick={resetEcosystem}
             className="p-2 rounded-xl hover:bg-white/10 transition-colors text-white"
-            title="重置生态缸"
+            title="重置生态缸（回到正午）"
           >
             <RotateCcw size={18} />
           </button>

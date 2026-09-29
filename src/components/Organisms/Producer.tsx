@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Organism, Species } from '@/types/ecosystem';
+import { dayNightView } from '@/utils/dayNight';
 
 interface ProducerModelProps {
   species: Species;
@@ -16,6 +17,14 @@ export function ProducerModel({ species, organism }: ProducerModelProps) {
       groupRef.current.children.forEach((child, i) => {
         if (child instanceof THREE.Mesh) {
           child.rotation.z = Math.sin(state.clock.elapsedTime * 1.2 + i * 0.5 + organism.position.x) * 0.1;
+          // 夜间光合作用停止，叶片自发光与微光一起减弱
+          const mat = child.material as THREE.MeshStandardMaterial;
+          if (mat.emissive) {
+            mat.emissiveIntensity = 0.02 + dayNightView.daylight * 0.1;
+          }
+        }
+        if (child instanceof THREE.PointLight) {
+          child.intensity = 0.05 + dayNightView.daylight * 0.3;
         }
       });
     }

@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState } from 'react';
+import { useRef, useMemo } from 'react';
 import { Canvas, useFrame, ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
@@ -7,6 +7,8 @@ import { Organism3D } from '@/components/Organisms/Organism';
 import { useEcosystemStore } from '@/store/useEcosystemStore';
 import { AQUARIUM_BOUNDS } from '@/store/useEcosystemStore';
 import { getSpeciesById } from '@/data/species';
+import { DayNightLighting, DayNightStars } from './DayNightEnvironment';
+import { dayNightView } from '@/utils/dayNight';
 
 function Glass() {
   const thickness = 0.08;
@@ -84,10 +86,15 @@ function Glass() {
 function Water() {
   const waterRef = useRef<THREE.Mesh>(null);
 
+  const dayColor = useMemo(() => new THREE.Color('#0ea5e9'), []);
+  const nightColor = useMemo(() => new THREE.Color('#0a1838'), []);
+
   useFrame((state) => {
     if (waterRef.current) {
       const material = waterRef.current.material as THREE.MeshPhysicalMaterial;
       material.opacity = 0.35 + Math.sin(state.clock.elapsedTime * 0.5) * 0.02;
+      // 夜间水体颜色变暗变蓝（透明度保持不变，玻璃质感不变）
+      material.color.copy(nightColor).lerp(dayColor, dayNightView.daylight);
     }
   });
 
@@ -164,6 +171,13 @@ function LightRays() {
   useFrame((state) => {
     if (raysRef.current) {
       raysRef.current.rotation.y = state.clock.elapsedTime * 0.02;
+      // 夜间阳光光束淡出
+      raysRef.current.children.forEach((child) => {
+        if (child instanceof THREE.Mesh) {
+          const mat = child.material as THREE.MeshBasicMaterial;
+          mat.opacity = dayNightView.daylight * 0.06;
+        }
+      });
     }
   });
 
@@ -287,7 +301,6 @@ interface Aquarium3DProps {
 
 export function Aquarium3D({ onAquariumClick }: Aquarium3DProps) {
   const { organisms } = useEcosystemStore();
-  const selectedSpeciesId = useEcosystemStore((s) => s.selectedSpeciesId);
 
   return (
     <Canvas
@@ -299,16 +312,8 @@ export function Aquarium3D({ onAquariumClick }: Aquarium3DProps) {
       <color attach="background" args={[0x0a1628]} />
       <fog attach="fog" args={[0x0a1628, 10, 20]} />
 
-      <ambientLight intensity={0.4} />
-      <directionalLight
-        position={[2, 5, 3]}
-        intensity={1.2}
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-      />
-      <pointLight position={[0, 3, 0]} intensity={0.6} color="#a5f3fc" distance={10} />
-      <pointLight position={[-3, 1, -2]} intensity={0.3} color="#60a5fa" distance={8} />
+      <DayNightLighting />
+      <DayNightStars />
 
       <Water />
       <Glass />

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { GlassCard } from '@/components/common/GlassCard';
 import { useEcosystemStore } from '@/store/useEcosystemStore';
 import { SPECIES, TROPHIC_LEVEL_COLORS, TROPHIC_LEVEL_LABELS } from '@/data/species';
+import { getDayPhaseLabel, phaseToClock } from '@/utils/dayNight';
 import type { TrophicLevel } from '@/types/ecosystem';
 
 export function EcosystemStats() {
@@ -57,6 +58,36 @@ export function EcosystemStats() {
           <div className="bg-white/5 rounded-lg p-2">
             <div className="text-white/60 text-xs">生物总数</div>
             <div className="text-white font-mono text-lg">{stats.totalOrganisms}</div>
+          </div>
+        </div>
+
+        <div className="mb-4 bg-white/5 rounded-lg p-2.5">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-white/60 text-xs flex items-center gap-1">
+              {stats.isNight ? '🌙' : '☀️'} 昼夜节律
+            </span>
+            <span
+              className="text-xs font-bold"
+              style={{ color: stats.isNight ? '#a5b4fc' : '#fbbf24' }}
+            >
+              {stats.dayNightEnabled
+                ? `${phaseToClock(stats.dayPhase).text} · ${getDayPhaseLabel(stats.dayPhase, true)}`
+                : '恒昼模式'}
+            </span>
+          </div>
+          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-[width] duration-200"
+              style={{
+                width: `${stats.daylight * 100}%`,
+                background: 'linear-gradient(90deg, #3b5a9e, #fbbf24)',
+                boxShadow: `0 0 10px ${stats.isNight ? '#6366f1' : '#fbbf24'}`,
+              }}
+            />
+          </div>
+          <div className="flex justify-between text-[10px] text-white/40 mt-1">
+            <span>日照</span>
+            <span className="font-mono">{Math.round(stats.daylight * 100)}%</span>
           </div>
         </div>
 

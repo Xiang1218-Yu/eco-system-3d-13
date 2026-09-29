@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Organism, Species } from '@/types/ecosystem';
+import { dayNightView } from '@/utils/dayNight';
 
 interface CarnivoreModelProps {
   species: Species;
@@ -18,7 +19,7 @@ export function CarnivoreModel({ species, organism }: CarnivoreModelProps) {
     }
     if (groupRef.current) {
       groupRef.current.position.y += Math.sin(state.clock.elapsedTime * 4 + organism.position.x) * 0.004;
-      const intensity = 0.2 + Math.sin(state.clock.elapsedTime * 2) * 0.1;
+      const intensity = (0.2 + Math.sin(state.clock.elapsedTime * 2) * 0.1) * (0.15 + dayNightView.daylight);
       const light = groupRef.current.children.find(
         (c) => c instanceof THREE.PointLight,
       ) as THREE.PointLight;

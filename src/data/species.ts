@@ -136,6 +136,7 @@ export const SPECIES: Species[] = [
     size: 0.2,
     energyValue: 5,
     maxPopulation: 8,
+    bioluminescent: true,
   },
 ];
 

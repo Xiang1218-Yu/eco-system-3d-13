@@ -20,6 +20,8 @@ export interface Species {
   size: number;
   energyValue: number;
   maxPopulation: number;
+  /** 夜间发光生物（如分解菌），黑暗中会增强发光、夜间更活跃 */
+  bioluminescent?: boolean;
 }
 
 export interface Organism {
@@ -41,6 +43,10 @@ export interface EcosystemStats {
   balanceIndex: number;
   populationBySpecies: Record<string, number>;
   totalOrganisms: number;
+  dayPhase: number;
+  daylight: number;
+  dayNightEnabled: boolean;
+  isNight: boolean;
 }
 
 export interface FoodChainRelation {

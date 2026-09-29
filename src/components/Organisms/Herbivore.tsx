@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Organism, Species } from '@/types/ecosystem';
+import { dayNightView } from '@/utils/dayNight';
 
 interface HerbivoreModelProps {
   species: Species;
@@ -18,6 +19,11 @@ export function HerbivoreModel({ species, organism }: HerbivoreModelProps) {
     }
     if (groupRef.current) {
       groupRef.current.position.y += Math.sin(state.clock.elapsedTime * 3 + organism.position.x) * 0.003;
+      // 非发光生物夜间自身微光收暗
+      const light = groupRef.current.children.find((c) => c instanceof THREE.PointLight) as
+        | THREE.PointLight
+        | undefined;
+      if (light) light.intensity = 0.03 + dayNightView.daylight * 0.2;
     }
   });
 
